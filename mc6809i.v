@@ -43,13 +43,13 @@ module mc6809i
     parameter ILLEGAL_INSTRUCTIONS="GHOST"
 ) 
 (
-
+    input   clk,
     input   [7:0]  D,
     output  [7:0]  DOut,
     output  [15:0] ADDR,
     output  RnW,
-    input   E,
-    input   Q,
+    input   cen_E,
+    input   cen_Q,
     output  BS,
     output  BA,
     input   nIRQ,
@@ -532,10 +532,17 @@ endgenerate
 
 ///////////////////////////////////////////////////////////////////////
 
+reg last_NMISample2, last_wNMIClear;
 
-always @(negedge NMISample2 or posedge wNMIClear)
+always @(posedge clk) begin
+    last_NMISample2 <= NMISample2;
+    last_wNMIClear  <= wNMIClear;
+end
+
+always @(posedge clk)
+if ( (wNMIClear && !last_wNMIClear) || (NMISample2 && !last_NMISample2) )
 begin
-    if (wNMIClear == 1)
+    if (wNMIClear && !last_wNMIClear) // rising edge
         NMILatched <= 1;
     else if (NMIMask == 0)
         NMILatched <= 0;
@@ -562,7 +569,7 @@ end
 // analyzer on the 6809 to determine how many cycles before a new instruction an interrupt (or /HALT & /DMABREQ)
 // had to be asserted to be noted instead of the next instruction running start to finish.  
 // 
-always @(negedge Q)
+always @(posedge clk) if(cen_Q)
 begin
     NMISample <= nNMI;
     
@@ -579,7 +586,7 @@ end
 
 
 reg rnRESET=0; // The latched version of /RESET, useful 1 clock after it's latched
-always @(negedge E)
+always @(posedge clk) if(cen_E)
 begin
     rnRESET <= nRESET;
     
